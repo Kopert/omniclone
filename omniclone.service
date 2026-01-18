@@ -1,0 +1,12 @@
+[Unit]
+Description=Rclone Omniscript Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart={{EXEC_START}}
+Restart=on-failure
+RestartSec=5min
+Nice=10
+IOSchedulingClass=idle

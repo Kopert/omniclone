@@ -1,0 +1,17 @@
+{
+    "tasks": {
+        "bisync": {
+            "rclone": {
+                "src": "~/rclone-gdrive",
+                "dst": "gdrive:rclone",
+                "extra_flags": ["--drive-skip-gdocs"]
+            }
+        },
+        "backup": {
+            "backup_test": {
+                "src": "~/rclone-gdrive-backup",
+                "dst": "gdrive:backup_test"
+            }
+        }
+    }
+}

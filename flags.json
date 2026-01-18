@@ -1,0 +1,35 @@
+{
+    "base": [
+        "--checkers",
+        "32",
+        "--transfers",
+        "8",
+        "--create-empty-src-dirs",
+        "--fix-case",
+        "--ignore-case"
+    ],
+    "terminal": ["-vP"],
+    "systemd": [
+        "--stats",
+        "0",
+        "--syslog",
+        "--log-level",
+        "INFO",
+        "--stats-file-name-length",
+        "0"
+    ],
+    "bisync": [
+        "--resilient",
+        "--recover",
+        "--max-lock",
+        "5m",
+        "--conflict-resolve",
+        "newer",
+        "--compare",
+        "size,modtime,checksum",
+        "--log-format",
+        "date,time",
+        "-M"
+    ],
+    "backup": ["--delete-excluded", "--copy-links"]
+}

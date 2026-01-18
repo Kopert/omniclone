@@ -1,0 +1,32 @@
+# Windows System Files
+- thumbs.db
+- NTUSER.DAT*
+- desktop.ini
+- $Recycle.Bin/
+- RECYCLE?/
+- Recovery/
+- System Volume Information/
+
+# macOS Junk
+- .DS_Store
+
+# Development & Cache
+- .cache/
+- .git/
+- .npm/
+- node_modules/
+
+# Windows User Folders (Redirected/Junctions)
+- /Application Data/
+- /Cookies/
+- /Local Settings/
+- /My Documents/
+- /NetHood/
+- /PrintHood/
+- /Recent/
+- /SendTo/
+- /Start Menu/
+- /Templates/
+- /Documents/My Music/
+- /Documents/My Pictures/
+- /Documents/My Videos/
