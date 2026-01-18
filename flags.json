@@ -6,17 +6,21 @@
         "8",
         "--create-empty-src-dirs",
         "--fix-case",
-        "--ignore-case"
+        "--ignore-case",
+        "--stats-file-name-length",
+        "0"
     ],
-    "terminal": ["-vP"],
+    "terminal": [
+        "--verbose",
+        "--progress",
+        "--color",
+        "ALWAYS"],
     "systemd": [
         "--stats",
         "0",
         "--syslog",
         "--log-level",
-        "INFO",
-        "--stats-file-name-length",
-        "0"
+        "INFO"
     ],
     "bisync": [
         "--resilient",

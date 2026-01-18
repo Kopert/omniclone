@@ -2,10 +2,10 @@
 - thumbs.db
 - NTUSER.DAT*
 - desktop.ini
-- $Recycle.Bin/
-- RECYCLE?/
-- Recovery/
-- System Volume Information/
+- /$Recycle.Bin/
+- /RECYCLE?/
+- /Recovery/
+- /System Volume Information/
 
 # macOS Junk
 - .DS_Store
