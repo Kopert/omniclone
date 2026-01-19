@@ -172,7 +172,9 @@ def run_rclone(cmd_type, src, dst, base_flags, extra_flags):
     result = subprocess.run(cmd + full_flags)
 
     if result.returncode == 0:
-        logger.info(f"Finished {cmd_type}: {src}")
+        logger.info(
+            f"Finished {cmd_type}: {src} {'<-->' if cmd_type == 'bisync' else '-->'} {dst}"
+        )
     else:
         logger.error(f"{cmd_type} failed for {src} with exit code {result.returncode}")
 
