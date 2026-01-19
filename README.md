@@ -14,7 +14,7 @@ Omniclone is an automated rclone-based sync and backup orchestrator. It manages 
 
 1. Clone or copy the project files to a directory.
 2. Edit `config.json` to define your sync and backup targets.
-3. (Optional) Create custom filter files to exclude files/folders.*
+3. (Optional) Create custom filter files to exclude files/folders.
 4. Run manually or install as a systemd timer/service.
 
 ## Configuration: `config.json`
@@ -34,7 +34,8 @@ The `config.json` file defines all sync and backup tasks. Example:
         "backup": {
             "backup_test": {
                 "src": "~/rclone-gdrive-backup",
-                "dst": "gdrive:backup_test"
+                "dst": "gdrive:backup_test",
+                "disabled": true
             }
         }
     }
@@ -50,7 +51,8 @@ Each target must specify:
 
 - `src`: Source directory (local path, can use `~` for home)
 - `dst`: Destination (rclone remote path)
-- `extra_flags`: (Optional) Additional rclone flags for this target
+- `extra_flags`: (Optional, array) Additional rclone flags for this target
+- `disabled`: (Optional, boolean) If set to `true`, the task will be skipped during execution. Useful for temporarily disabling sync/backup jobs without removing their configuration
 
 ## Custom Filters
 

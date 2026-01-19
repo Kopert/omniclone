@@ -206,7 +206,11 @@ def main():
             base_flags = FLAGS_BISYNC if mode == "bisync" else FLAGS_BACKUP
 
             for task_name, cfg in tasks.items():
-                # 1. Expand paths
+                # Skip disabled tasks
+                if cfg.get("disabled", False):
+                    logger.info(f"Skipping disabled task: {task_name} ({mode})")
+                    continue
+                # Expand paths
                 src_path = Path(cfg["src"]).expanduser().resolve()
                 dst_raw = cfg["dst"]
                 # Expand dst only if it doesn't look like a remote (doesn't contain ':')
