@@ -80,18 +80,18 @@ Filter files use rclone's filter syntax. Example:
     ```bash
     ./omniclone.py
     ```
-- **Linux only: Install as systemd timer/service:**
+- **Install service:**
     ```bash
-    ./omniclone.py install
+    ./omniclone.py --install
     ```
     This sets up a user systemd timer to run every 30 minutes.
-- **Linux only: Uninstall systemd timer/service:**
+- **Uninstall service:**
     ```bash
-    ./omniclone.py uninstall
+    ./omniclone.py --uninstall
     ```
-- **Linux only: Check status/logs:**
+- **Check status:**
     ```bash
-    ./omniclone.py status
+    ./omniclone.py --status
     ```
 
 ## Advanced

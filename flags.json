@@ -3,11 +3,13 @@
         "--create-empty-src-dirs",
         "--fix-case",
         "--ignore-case",
-        "--stats-file-name-length",
-        "0"
+        "--stats",
+        "0",
+        "--log-level",
+        "INFO",
+        "--log-format",
+        ""
     ],
-    "terminal": ["--verbose", "--progress", "--color", "ALWAYS"],
-    "systemd": ["--stats", "0", "--syslog", "--log-level", "INFO"],
     "bisync": [
         "--resilient",
         "--recover",

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import getpass
 import json
 import logging
@@ -7,11 +8,8 @@ import shlex
 import subprocess
 import sys
 import tempfile
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
-
-# --- Logging Setup ---
-logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(message)s")
-logger = logging.getLogger(__name__)
 
 # --- Path Resolution ---
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -19,12 +17,54 @@ CONFIG_FILE = SCRIPT_DIR / "config.json"
 FLAGS_FILE = SCRIPT_DIR / "flags.json"
 SERVICE_TEMPLATE = SCRIPT_DIR / "omniclone.service"
 TIMER_TEMPLATE = SCRIPT_DIR / "omniclone.timer"
+LOG_FILE = SCRIPT_DIR / "omniclone.task.log"
+
+# --- Logging Setup ---
+LOGGER = logging.getLogger()
+LOGGER.setLevel(logging.INFO)
+LOG_STREAM_FORMATTER = logging.Formatter("[%(levelname)s] %(message)s")
+LOG_FILE_FORMATTER = logging.Formatter(
+    "%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+)
+LOG_FILE_HANDLER = RotatingFileHandler(
+    LOG_FILE,
+    mode="a",
+    maxBytes=5 * 1024 * 1024,
+    backupCount=1,
+    encoding="utf-8",
+    delay=False,
+)
+LOG_FILE_HANDLER.setFormatter(LOG_FILE_FORMATTER)
+LOGGER.addHandler(LOG_FILE_HANDLER)
+LOG_STREAM_HANDLER = logging.StreamHandler(sys.stdout)
+LOG_STREAM_HANDLER.setFormatter(LOG_STREAM_FORMATTER)
+LOGGER.addHandler(LOG_STREAM_HANDLER)
+
+# --- Argument Parser ---
+PARSER = argparse.ArgumentParser()
+PARSER.add_argument(
+    "--service", action="store_true", help="Force service-mode behavior"
+)
+PARSER.add_argument(
+    "--install", action="store_true", help="Install as a systemd service"
+)
+PARSER.add_argument(
+    "--uninstall", action="store_true", help="Uninstall the systemd service"
+)
+PARSER.add_argument(
+    "--status", action="store_true", help="Show the status of the systemd service"
+)
+ARGS = PARSER.parse_args()
+IS_SERVICE = ARGS.service
+IS_INSTALL = ARGS.install
+IS_UNINSTALL = ARGS.uninstall
+IS_STATUS = ARGS.status
 
 
 # --- Load Data ---
 def load_json(path):
     if not path.exists():
-        logger.error(f"Error: Required file not found at {path}")
+        LOGGER.error(f"Error: Required file not found at {path}")
         sys.exit(1)
     with open(path, "r") as f:
         return json.load(f)
@@ -42,8 +82,6 @@ SYSTEMD_USER_DIR = Path.home() / ".config/systemd/user"
 # Merging base flags with the specific sync-type flags from JSON
 FLAGS_BISYNC = FLAGS_DATA["base"] + FLAGS_DATA["bisync"]
 FLAGS_BACKUP = FLAGS_DATA["base"] + FLAGS_DATA["backup"]
-FLAGS_TERMINAL = FLAGS_DATA["terminal"]
-FLAGS_SYSTEMD = FLAGS_DATA["systemd"]
 
 
 # --- Utility Functions ---
@@ -88,7 +126,7 @@ def acquire_lock():
         LOCK_DIR.mkdir(parents=True, exist_ok=False)
         return True
     except FileExistsError:
-        logger.warning(
+        LOGGER.warning(
             f"Lock directory exists. Another instance may be running. If not, delete {LOCK_DIR}"
         )
         return False
@@ -99,7 +137,7 @@ def release_lock():
         if LOCK_DIR.exists():
             LOCK_DIR.rmdir()
     except Exception as e:
-        logger.warning(f"Could not release lock: {e}")
+        LOGGER.warning(f"Could not release lock: {e}")
 
 
 # --- Linux Service Management Functions ---
@@ -108,7 +146,9 @@ def install_systemd():
 
     # Path to the actual script, not the symlink
     script_path = os.path.abspath(__file__)
-    exec_start_cmd = f"{shlex.quote(sys.executable)} {shlex.quote(script_path)}"
+    exec_start_cmd = (
+        f"{shlex.quote(sys.executable)} {shlex.quote(script_path)} --service"
+    )
 
     # Load and process templates
     service_content = SERVICE_TEMPLATE.read_text().replace(
@@ -123,9 +163,9 @@ def install_systemd():
     subprocess.run(["systemctl", "--user", "enable", "--now", f"{SERVICE_NAME}.timer"])
 
     current_user = getpass.getuser()
-    logger.info(f"Enabling linger for {current_user} (requires sudo)...")
+    LOGGER.info(f"Enabling linger for {current_user} (requires sudo)...")
     subprocess.run(["sudo", "loginctl", "enable-linger", current_user])
-    logger.info("Installation complete.")
+    LOGGER.info("Installation complete.")
 
 
 def uninstall_systemd():
@@ -136,15 +176,15 @@ def uninstall_systemd():
     (SYSTEMD_USER_DIR / f"{SERVICE_NAME}.service").unlink(missing_ok=True)
     (SYSTEMD_USER_DIR / f"{SERVICE_NAME}.timer").unlink(missing_ok=True)
     subprocess.run(["systemctl", "--user", "daemon-reload"])
-    logger.info("Uninstalled systemd units.")
+    LOGGER.info("Uninstalled systemd units.")
 
 
-def show_status():
-    logger.info("--- Timer Status ---")
+def show_status_systemd():
+    LOGGER.info("--- Timer Status ---")
     subprocess.run(
         ["systemctl", "--user", "list-timers", f"{SERVICE_NAME}.timer", "--no-pager"]
     )
-    logger.info("\n--- Last Sync Logs ---")
+    LOGGER.info("\n--- Last Sync Logs ---")
     subprocess.run(
         [
             "journalctl",
@@ -159,48 +199,167 @@ def show_status():
     )
 
 
+def windows_check_admin_and_elevate():
+    import ctypes
+
+    try:
+        is_admin = ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        is_admin = False
+
+    if not is_admin:
+        LOGGER.info("Requesting elevation...")
+        ctypes.windll.shell32.ShellExecuteW(
+            None, "runas", sys.executable, " ".join(sys.argv), None, 1
+        )
+        LOGGER.info("Elevation requested. Exiting non-privileged instance.")
+        sys.exit(0)  # Exit the non-privileged instance
+
+
+def install_windows_task():
+    windows_check_admin_and_elevate()
+
+    LOGGER.info("Installing Windows Task Scheduler task via PowerShell...")
+
+    script_path = os.path.abspath(__file__)
+    # Using pythonw.exe ensures no console window pops up when the task runs
+    python_exe = sys.executable.lower().replace("python.exe", "pythonw.exe")
+    current_user = f"{os.environ['USERDOMAIN']}\\{os.environ['USERNAME']}"
+
+    # We set up the task with a PowerShell script block to allow for S4U logon type (background task) with no password stored
+    ps_command = f"""
+    $action = New-ScheduledTaskAction -Execute '{python_exe}' -Argument '"{script_path}" --service'
+    # Create a trigger for every 30 minutes
+    $trigger = New-ScheduledTaskTrigger -Once -At "00:00" -RepetitionInterval (New-TimeSpan -Minutes 30)
+    # S4U is the "Do not store password" magic flag
+    $principal = New-ScheduledTaskPrincipal -UserId "{current_user}" -LogonType S4U
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
+    Register-ScheduledTask -TaskName "{SERVICE_NAME}" -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force
+    """
+
+    try:
+        run_subprocess_with_logging(
+            ["powershell", "-NoProfile", "-Command", ps_command]
+        )
+        LOGGER.info(f"Windows Task '{SERVICE_NAME}' created successfully.")
+    except subprocess.CalledProcessError as e:
+        LOGGER.error(f"Failed to create Windows Task: {e.stderr}")
+    except Exception as e:
+        LOGGER.error(f"An unexpected error occurred: {e}")
+
+    input("Press Enter to exit...")
+
+
+def uninstall_windows_task():
+    windows_check_admin_and_elevate()
+    ps_command = f'Unregister-ScheduledTask -TaskName "{SERVICE_NAME}" -Confirm:$false'
+    try:
+        run_subprocess_with_logging(
+            ["powershell", "-NoProfile", "-Command", ps_command]
+        )
+        LOGGER.info(f"Windows Task '{SERVICE_NAME}' unregistered successfully.")
+    except subprocess.CalledProcessError as e:
+        LOGGER.error(f"Failed to uninstall Windows Task: {e.stderr}")
+    input("Press Enter to exit...")
+
+
+def show_status_windows_task():
+    try:
+        # We capture output just so we can control the 'error' message if it's missing
+        result = subprocess.run(
+            ["schtasks", "/Query", "/TN", SERVICE_NAME, "/V", "/FO", "LIST"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        print(result.stdout)
+    except subprocess.CalledProcessError:
+        print(f"\n[!] Task '{SERVICE_NAME}' is not currently installed.")
+
+
+def run_subprocess_with_logging(cmd):
+    process = None
+    try:
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+        )
+
+        if process.stdout:
+            for line in iter(process.stdout.readline, ""):
+                clean_line = line.strip()
+                if clean_line:
+                    # Log everything coming from the subprocess
+                    LOGGER.info(f"[subprocess] {clean_line}")
+
+            process.stdout.close()
+
+        return process.wait()
+    except KeyboardInterrupt:
+        LOGGER.warning("Script interrupted by user. Terminating...")
+        if process:
+            process.terminate()
+        raise Exception("Interrupted by user")
+    except Exception as e:
+        LOGGER.error(f"An error occurred while running subprocess: {e}")
+        if process:
+            process.terminate()
+        raise
+    finally:
+        if process and process.poll() is None:
+            process.kill()
+
+
 # --- Core Sync Function ---
 def run_rclone(cmd_type, src, dst, base_flags, extra_flags):
     cmd = ["rclone", "bisync" if cmd_type == "bisync" else "sync", str(src), str(dst)]
-    mode_flags = FLAGS_TERMINAL if sys.stdout.isatty() else FLAGS_SYSTEMD
-    full_flags = base_flags + mode_flags + extra_flags
 
-    logger.info(
+    LOGGER.info(
         f"Starting {cmd_type}: {src} {'<-->' if cmd_type == 'bisync' else '-->'} {dst}"
     )
 
-    result = subprocess.run(cmd + full_flags)
-
-    if result.returncode == 0:
-        logger.info(
-            f"Finished {cmd_type}: {src} {'<-->' if cmd_type == 'bisync' else '-->'} {dst}"
-        )
-    else:
-        logger.error(f"{cmd_type} failed for {src} with exit code {result.returncode}")
+    try:
+        return_code = run_subprocess_with_logging(cmd + base_flags + extra_flags)
+        if return_code == 0:
+            LOGGER.info(
+                f"Finished {cmd_type}: {src} {'<-->' if cmd_type == 'bisync' else '-->'} {dst}"
+            )
+        else:
+            LOGGER.error(f"{cmd_type} failed for {src} with exit code {return_code}")
+    except Exception as e:
+        LOGGER.error(f"An error occurred while running rclone: {e}")
 
 
 # --- Main Execution ---
 def main():
-    if len(sys.argv) > 1:
-        if os.name == "nt":
-            logger.warning("Automatic service management is not supported on Windows.")
-            return
-        arg = sys.argv[1].lower()
-        if arg == "install":
-            install_systemd()
-        elif arg == "uninstall":
-            uninstall_systemd()
-        elif arg == "status":
-            show_status()
+    if IS_INSTALL or IS_UNINSTALL or IS_STATUS:
+        if IS_INSTALL:
+            if os.name == "nt":
+                install_windows_task()
+            else:
+                install_systemd()
+        elif IS_UNINSTALL:
+            if os.name == "nt":
+                uninstall_windows_task()
+            else:
+                uninstall_systemd()
+        elif IS_STATUS:
+            if os.name == "nt":
+                show_status_windows_task()
+            else:
+                show_status_systemd()
         return
 
     if not acquire_lock():
-        logger.error("Another instance is already running.")
+        LOGGER.error("Another instance is already running.")
         sys.exit(0)
 
     try:
         if not check_internet():
-            logger.error("No internet connection. Skipping sync.")
+            LOGGER.error("No internet connection. Skipping sync.")
             sys.exit(1)
         # Iterate through TASKS (bisync, backup)
         for mode, tasks in TASKS.items():
@@ -210,7 +369,7 @@ def main():
             for task_name, cfg in tasks.items():
                 # Skip disabled tasks
                 if cfg.get("disabled", False):
-                    logger.info(f"Skipping disabled task: {task_name} ({mode})")
+                    LOGGER.info(f"Skipping disabled task: {task_name} ({mode})")
                     continue
                 # Expand paths
                 src_path = Path(cfg["src"]).expanduser().resolve()

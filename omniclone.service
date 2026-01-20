@@ -8,6 +8,6 @@ Type=oneshot
 ExecStart={{EXEC_START}}
 Restart=on-failure
 RestartSec=5min
-Nice=19
+Nice=18
 IOSchedulingClass=idle
 CPUQuota=20%
