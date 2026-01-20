@@ -1,27 +1,13 @@
 {
     "base": [
-        "--checkers",
-        "32",
-        "--transfers",
-        "8",
         "--create-empty-src-dirs",
         "--fix-case",
         "--ignore-case",
         "--stats-file-name-length",
         "0"
     ],
-    "terminal": [
-        "--verbose",
-        "--progress",
-        "--color",
-        "ALWAYS"],
-    "systemd": [
-        "--stats",
-        "0",
-        "--syslog",
-        "--log-level",
-        "INFO"
-    ],
+    "terminal": ["--verbose", "--progress", "--color", "ALWAYS"],
+    "systemd": ["--stats", "0", "--syslog", "--log-level", "INFO"],
     "bisync": [
         "--resilient",
         "--recover",
