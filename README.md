@@ -8,6 +8,7 @@ Omniclone is an automated rclone-based sync and backup orchestrator. It manages 
 - Configurable targets via `config.json`
 - Customizable filter files for exclusions
 - Systemd integration for scheduled runs on Linux
+- Task Scheduler integration for scheduled runs on Windows
 - Locking and logging for safe, traceable operation
 
 ## Quick Start
@@ -84,7 +85,7 @@ Filter files use rclone's filter syntax. Example:
     ```bash
     ./omniclone.py --install
     ```
-    This sets up a user systemd timer to run every 30 minutes.
+    This sets up a user systemd timer, or a Windows Task Scheduler task, to run every 30 minutes.
 - **Uninstall service:**
     ```bash
     ./omniclone.py --uninstall
@@ -106,9 +107,8 @@ Filter files use rclone's filter syntax. Example:
 
 ## Requirements
 
-- Python 3
+- Python 3.8+
 - rclone installed and configured
-- For automated service management, requires a systemd-based Linux system
 
 ## License
 

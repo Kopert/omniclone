@@ -1,4 +1,28 @@
 #!/usr/bin/env python3
+"""
+MIT License
+
+Copyright (c) 2026 Kopert
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
+
 import argparse
 import getpass
 import json
@@ -17,7 +41,7 @@ CONFIG_FILE = SCRIPT_DIR / "config.json"
 FLAGS_FILE = SCRIPT_DIR / "flags.json"
 SERVICE_TEMPLATE = SCRIPT_DIR / "omniclone.service"
 TIMER_TEMPLATE = SCRIPT_DIR / "omniclone.timer"
-LOG_FILE = SCRIPT_DIR / "omniclone.task.log"
+LOG_FILE = SCRIPT_DIR / "omniclone.log"
 
 # --- Logging Setup ---
 LOGGER = logging.getLogger()
@@ -180,11 +204,9 @@ def uninstall_systemd():
 
 
 def show_status_systemd():
-    LOGGER.info("--- Timer Status ---")
     subprocess.run(
         ["systemctl", "--user", "list-timers", f"{SERVICE_NAME}.timer", "--no-pager"]
     )
-    LOGGER.info("\n--- Last Sync Logs ---")
     subprocess.run(
         [
             "journalctl",
@@ -373,12 +395,11 @@ def main():
                     continue
                 # Expand paths
                 src_path = Path(cfg["src"]).expanduser().resolve()
-                dst_raw = cfg["dst"]
-                # Expand dst only if it doesn't look like a remote (doesn't contain ':')
-                if ":" not in dst_raw:
-                    dst_path = str(Path(dst_raw).expanduser().resolve())
-                else:
-                    dst_path = dst_raw
+                dst_path = (
+                    str(Path(cfg["dst"]).expanduser().resolve())
+                    if ":" not in cfg["dst"]
+                    else cfg["dst"]
+                )
 
                 # 2. Get cascading filters
                 filters = get_filter_flags(mode, task_name)
