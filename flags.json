@@ -8,7 +8,9 @@
         "--log-level",
         "INFO",
         "--log-format",
-        ""
+        "",
+        "--color",
+        "NEVER"
     ],
     "bisync": [
         "--resilient",
