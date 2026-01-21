@@ -27,7 +27,8 @@
         "--log-format",
         "date,time",
         "-M",
-        "--ignore-listing-checksum"
+        "--ignore-listing-checksum",
+        "--drive-acknowledge-abuse"
     ],
     "backup": ["--delete-excluded", "--copy-links"]
 }
