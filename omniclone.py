@@ -251,12 +251,14 @@ def install_windows_task():
     # We set up the task with a PowerShell script block to allow for S4U logon type (background task) with no password stored
     ps_command = f"""
     $action = New-ScheduledTaskAction -Execute '{python_exe}' -Argument '"{script_path}" --service'
-    # Create a trigger for every 30 minutes
-    $trigger = New-ScheduledTaskTrigger -Once -At "00:00" -RepetitionInterval (New-TimeSpan -Minutes 15)
+    # Trigger 1: At startup
+    $trigger1 = New-ScheduledTaskTrigger -AtStartup
+    # Trigger 2: Every 15 minutes, starting at midnight
+    $trigger2 = New-ScheduledTaskTrigger -Once -At "00:00" -RepetitionInterval (New-TimeSpan -Minutes 15)
     # S4U is the "Do not store password" magic flag
     $principal = New-ScheduledTaskPrincipal -UserId "{current_user}" -LogonType S4U
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Priority 8
-    Register-ScheduledTask -TaskName "{SERVICE_NAME}" -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force
+    Register-ScheduledTask -TaskName "{SERVICE_NAME}" -Action $action -Trigger @($trigger1, $trigger2) -Principal $principal -Settings $settings -Force
     """
 
     try:
