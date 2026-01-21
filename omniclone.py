@@ -255,8 +255,8 @@ def install_windows_task():
     $trigger = New-ScheduledTaskTrigger -Once -At "00:00" -RepetitionInterval (New-TimeSpan -Minutes 15)
     # S4U is the "Do not store password" magic flag
     $principal = New-ScheduledTaskPrincipal -UserId "{current_user}" -LogonType S4U
-    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
-    Register-ScheduledTask -TaskName "{SERVICE_NAME}" -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Priority 8 -Force
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -Priority 8
+    Register-ScheduledTask -TaskName "{SERVICE_NAME}" -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force
     """
 
     try:
@@ -315,7 +315,7 @@ def run_subprocess_with_logging(cmd):
                 clean_line = line.strip()
                 if clean_line:
                     # Log everything coming from the subprocess
-                    LOGGER.info(f"[subprocess] {clean_line}")
+                    LOGGER.info(f"[{cmd[0]}] {clean_line}")
 
             process.stdout.close()
 

@@ -26,7 +26,8 @@
         "conflict",
         "--log-format",
         "date,time",
-        "-M"
+        "-M",
+        "--ignore-listing-checksum"
     ],
     "backup": ["--delete-excluded", "--copy-links"]
 }
