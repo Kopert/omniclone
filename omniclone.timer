@@ -3,7 +3,7 @@ Description=Run Rclone Omniscript Service every 30 minutes
 
 [Timer]
 OnBootSec=5min
-OnUnitInactiveSec=30min
+OnUnitInactiveSec=15min
 Persistent=true
 
 [Install]

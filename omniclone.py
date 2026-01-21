@@ -252,11 +252,11 @@ def install_windows_task():
     ps_command = f"""
     $action = New-ScheduledTaskAction -Execute '{python_exe}' -Argument '"{script_path}" --service'
     # Create a trigger for every 30 minutes
-    $trigger = New-ScheduledTaskTrigger -Once -At "00:00" -RepetitionInterval (New-TimeSpan -Minutes 30)
+    $trigger = New-ScheduledTaskTrigger -Once -At "00:00" -RepetitionInterval (New-TimeSpan -Minutes 15)
     # S4U is the "Do not store password" magic flag
     $principal = New-ScheduledTaskPrincipal -UserId "{current_user}" -LogonType S4U
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
-    Register-ScheduledTask -TaskName "{SERVICE_NAME}" -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force
+    Register-ScheduledTask -TaskName "{SERVICE_NAME}" -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Priority 8 -Force
     """
 
     try:
