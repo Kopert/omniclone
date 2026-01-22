@@ -140,7 +140,10 @@ if (IS_INSTALL or IS_UNINSTALL or IS_STATUS) and SERVICE_NAME is None:
     )
     sys.exit(1)
 
-LOCK_DIR = Path(tempfile.gettempdir()) / f"omniclone_lock_{getpass.getuser()}{'' if SERVICE_NAME is None else '_' + SERVICE_NAME}"
+LOCK_DIR = (
+    Path(tempfile.gettempdir())
+    / f"omniclone_lock_{getpass.getuser()}{'' if SERVICE_NAME is None else '_' + SERVICE_NAME}"
+)
 
 SYSTEMD_USER_DIR = Path.home() / ".config/systemd/user"
 
@@ -217,17 +220,11 @@ def install_systemd():
 
     # Load and process templates, update Description with service name
     service_content = SERVICE_TEMPLATE.read_text()
-    service_content = service_content.replace(
-        "Description=Rclone Omniscript Service",
-        f"Description=Rclone Omniscript Service ({SERVICE_NAME})",
-    )
+    service_content = service_content.replace("{{SERVICE_NAME}}", f"{SERVICE_NAME}")
     service_content = service_content.replace("{{EXEC_START}}", exec_start_cmd)
 
     timer_content = TIMER_TEMPLATE.read_text()
-    timer_content = timer_content.replace(
-        "Description=Run Rclone Omniscript Service every 30 minutes",
-        f"Description=Run Rclone Omniscript Service ({SERVICE_NAME}) every 30 minutes",
-    )
+    timer_content = timer_content.replace("{{SERVICE_NAME}}", f"{SERVICE_NAME}")
 
     (SYSTEMD_USER_DIR / f"{SERVICE_NAME}.service").write_text(service_content)
     (SYSTEMD_USER_DIR / f"{SERVICE_NAME}.timer").write_text(timer_content)
