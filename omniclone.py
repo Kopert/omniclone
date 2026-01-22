@@ -35,13 +35,42 @@ import tempfile
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+# --- Argument Parser ---
+PARSER = argparse.ArgumentParser()
+PARSER.add_argument(
+    "--service", action="store_true", help="Force service-mode behavior"
+)
+PARSER.add_argument(
+    "--install", action="store_true", help="Install as a systemd service"
+)
+PARSER.add_argument(
+    "--uninstall", action="store_true", help="Uninstall the systemd service"
+)
+PARSER.add_argument(
+    "--status", action="store_true", help="Show the status of the systemd service"
+)
+PARSER.add_argument(
+    "--config-dir",
+    type=str,
+    default=str(Path(__file__).resolve().parent),
+    help="Override the config directory (default: script directory)",
+)
+ARGS = PARSER.parse_args()
+IS_SERVICE = ARGS.service
+IS_INSTALL = ARGS.install
+IS_UNINSTALL = ARGS.uninstall
+IS_STATUS = ARGS.status
+
 # --- Path Resolution ---
-SCRIPT_DIR = Path(__file__).resolve().parent
-CONFIG_FILE = SCRIPT_DIR / "config.json"
-FLAGS_FILE = SCRIPT_DIR / "flags.json"
-SERVICE_TEMPLATE = SCRIPT_DIR / "omniclone.service"
-TIMER_TEMPLATE = SCRIPT_DIR / "omniclone.timer"
-LOG_FILE = SCRIPT_DIR / "omniclone.log"
+CONFIG_DIR = Path(ARGS.config_dir).expanduser().resolve()
+if not CONFIG_DIR.is_dir():
+    print(f"Error: Config directory {CONFIG_DIR} does not exist or is not a directory.", file=sys.stderr)
+    sys.exit(1)
+CONFIG_FILE = CONFIG_DIR / "config.json"
+FLAGS_FILE = CONFIG_DIR / "flags.json"
+SERVICE_TEMPLATE = CONFIG_DIR / "omniclone.service"
+TIMER_TEMPLATE = CONFIG_DIR / "omniclone.timer"
+LOG_FILE = CONFIG_DIR / "omniclone.log"
 
 # --- Logging Setup ---
 LOGGER = logging.getLogger()
@@ -63,26 +92,6 @@ LOGGER.addHandler(LOG_FILE_HANDLER)
 LOG_STREAM_HANDLER = logging.StreamHandler(sys.stdout)
 LOG_STREAM_HANDLER.setFormatter(LOG_STREAM_FORMATTER)
 LOGGER.addHandler(LOG_STREAM_HANDLER)
-
-# --- Argument Parser ---
-PARSER = argparse.ArgumentParser()
-PARSER.add_argument(
-    "--service", action="store_true", help="Force service-mode behavior"
-)
-PARSER.add_argument(
-    "--install", action="store_true", help="Install as a systemd service"
-)
-PARSER.add_argument(
-    "--uninstall", action="store_true", help="Uninstall the systemd service"
-)
-PARSER.add_argument(
-    "--status", action="store_true", help="Show the status of the systemd service"
-)
-ARGS = PARSER.parse_args()
-IS_SERVICE = ARGS.service
-IS_INSTALL = ARGS.install
-IS_UNINSTALL = ARGS.uninstall
-IS_STATUS = ARGS.status
 
 
 # --- Load Data ---
@@ -133,12 +142,12 @@ def get_filter_flags(mode, task):
     filters = []
 
     # 1. Check for Global Mode Filter (e.g., filters.bisync.txt)
-    global_filter = SCRIPT_DIR / f"filters.{mode}.txt"
+    global_filter = CONFIG_DIR / f"filters.{mode}.txt"
     if global_filter.exists():
         filters.extend(["--filter-from", str(global_filter)])
 
     # 2. Check for Task-Specific Filter (e.g., filters.bisync.rclone.txt)
-    task_filter = SCRIPT_DIR / f"filters.{mode}.{task}.txt"
+    task_filter = CONFIG_DIR / f"filters.{mode}.{task}.txt"
     if task_filter.exists():
         filters.extend(["--filter-from", str(task_filter)])
 

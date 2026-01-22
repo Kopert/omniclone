@@ -75,35 +75,39 @@ Filter files use rclone's filter syntax. Example:
 - .cache/       # Exclude .cache directory
 ```
 
-## Running Omniclone
+## Supported Flags
 
-- **Manual run:**
-    ```bash
-    ./omniclone.py
-    ```
-- **Install service:**
-    ```bash
-    ./omniclone.py --install
-    ```
-    This sets up a user systemd timer, or a Windows Task Scheduler task, to run every 30 minutes.
-- **Uninstall service:**
-    ```bash
-    ./omniclone.py --uninstall
-    ```
-- **Check status:**
-    ```bash
-    ./omniclone.py --status
-    ```
+Omniclone supports several command-line flags to control its behavior:
 
-## Advanced
+- `--install`: Install Omniclone as a systemd timer (Linux) or Windows Task Scheduler task (Windows).
+- `--uninstall`: Uninstall the Omniclone scheduled task or timer.
+- `--status`: Show the status of the Omniclone scheduled task or timer.
+- `--service`: Force service-mode behavior (used internally by the scheduler/timer).
+- `--config-dir`: Override the config directory (default: script directory). Use this to point to a different config, flags, and filter set.
 
-- **Flags:**
-    - Global and per-mode flags are set in `flags.json`.
-    - Terminal and systemd runs use different logging/stats flags.
-- **Locking:**
-    - Prevents concurrent runs using a lockfile directory.
-- **Internet check:**
-    - Skips sync if no internet connection is detected.
+**Example:**
+
+```bash
+./omniclone.py --config-dir /path/to/your/config --install
+```
+
+### Flags from `flags.json`
+
+Omniclone uses `flags.json` to define the rclone flags used for all sync and backup operations. These are split into:
+
+- **base**: Flags applied to all rclone operations (e.g., logging, stats, color, etc.)
+- **bisync**: Additional flags for bisync tasks
+- **backup**: Additional flags for backup tasks
+
+You can customize these flags in `flags.json` to control rclone's behavior globally or per mode. Extra flags can also be set per target in `config.json`.
+
+### Locking
+
+Omniclone prevents concurrent runs using a lockfile directory.
+
+### Internet check
+
+Omniclone skips sync if no internet connection is detected.
 
 ## Requirements
 
