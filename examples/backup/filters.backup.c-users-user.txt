@@ -1,0 +1,18 @@
+- /.android/cache/
+- /.gradle/
+- /.m2/repository/
+- /.openjfx/
+- /.vscode/extensions/
+- /AppData/Local/
+- /AppData/LocalLow/
+- /AppData/Roaming/discord/
+- /AppData/Roaming/Dropbox/
+- /AppData/Roaming/Elgato/
+- /AppData/Roaming/fnm/
+- /AppData/Roaming/Microsoft/
+- /AppData/Roaming/Microsoft Flight Simulator/
+- /AppData/Roaming/Mozilla/
+- /AppData/Roaming/NZXT CAM/sentry/
+- /AppData/Roaming/stremio/
+- /Intel/Logs/
+- /Dropbox/.dropbox.cache/

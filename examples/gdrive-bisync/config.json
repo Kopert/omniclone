@@ -1,0 +1,11 @@
+{
+    "service_name": "gdrivebisync",
+    "tasks": {
+        "bisync": {
+            "gdrive-bisync": {
+                "src": "C:/Users/User/GDrive",
+                "dst": "gdrive:Sync"
+            }
+        }
+    }
+}

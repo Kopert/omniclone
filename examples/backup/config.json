@@ -1,0 +1,15 @@
+{
+    "service_name": "backup",
+    "tasks": {
+        "backup": {
+            "c-users-user": {
+                "src": "C:/Users/User",
+                "dst": "E:/Backup/C-Users-User"
+            },
+            "d": {
+                "src": "D:/",
+                "dst": "E:/Backup/D"
+            }
+        }
+    }
+}
