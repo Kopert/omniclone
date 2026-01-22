@@ -25,6 +25,7 @@ The `config.json` file defines all sync and backup tasks. Example:
 ```json
 {
     "tasks": {
+        "service_name": "myservice",
         "bisync": {
             "rclone": {
                 "src": "~/rclone-gdrive",
@@ -43,6 +44,10 @@ The `config.json` file defines all sync and backup tasks. Example:
 }
 ```
 
+### Global Parameters
+
+- `service_name`: required only if you're using systemd/Windows Task Scheduler services with `--install`, `--uninstall`, and `--status`. It allows you to have multiple, independent `--config-dir` for multiple services.
+
 ### Target Types
 
 - **BISYNC**: Uses rclone's `bisync` mode for two-way synchronization. Changes on both sides are mirrored. Good for folders that need to stay identical in both locations. **Remember**: `--resync` is necessary for the first run; you can add it to the `extra_flags` on the target and remove it afterwards.
@@ -59,8 +64,8 @@ Each target must specify:
 
 Omniclone supports exclusion filters using rclone's `--filter-from` option. Filters can be set globally or per-target:
 
-- **Global filter for a mode**: `filters.bisync.txt` or `filters.backup.txt`
-- **Target-specific filter**: `filters.bisync.<target>.txt` or `filters.backup.<target>.txt`
+- **Global filter for a mode**: `filters.bisync.txt` or `filters.backup.txt` in the script directory
+- **Target-specific filter**: `filters.bisync.<target>.txt` or `filters.backup.<target>.txt` in the `--config-dir` directory (defaults to script directory)
 
 **Example:**
 

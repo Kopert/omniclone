@@ -1,5 +1,5 @@
 [Unit]
-Description=Run Rclone Omniscript Service every 30 minutes
+Description=Run Rclone Omniscript Service ({{SERVICE_NAME}}) every 30 minutes
 
 [Timer]
 OnBootSec=5min

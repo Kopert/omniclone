@@ -1,5 +1,5 @@
 [Unit]
-Description=Rclone Omniscript Service
+Description=Rclone Omniscript Service ({{SERVICE_NAME}})
 After=network-online.target
 Wants=network-online.target
 

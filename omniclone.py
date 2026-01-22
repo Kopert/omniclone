@@ -28,6 +28,7 @@ import getpass
 import json
 import logging
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -41,13 +42,19 @@ PARSER.add_argument(
     "--service", action="store_true", help="Force service-mode behavior"
 )
 PARSER.add_argument(
-    "--install", action="store_true", help="Install as a systemd service"
+    "--install",
+    action="store_true",
+    help="Install as a systemd service or Windows Task Scheduler task",
 )
 PARSER.add_argument(
-    "--uninstall", action="store_true", help="Uninstall the systemd service"
+    "--uninstall",
+    action="store_true",
+    help="Uninstall the systemd service or Windows Task Scheduler task",
 )
 PARSER.add_argument(
-    "--status", action="store_true", help="Show the status of the systemd service"
+    "--status",
+    action="store_true",
+    help="Show the status of the systemd service or Windows Task Scheduler task",
 )
 PARSER.add_argument(
     "--config-dir",
@@ -64,12 +71,16 @@ IS_STATUS = ARGS.status
 # --- Path Resolution ---
 CONFIG_DIR = Path(ARGS.config_dir).expanduser().resolve()
 if not CONFIG_DIR.is_dir():
-    print(f"Error: Config directory {CONFIG_DIR} does not exist or is not a directory.", file=sys.stderr)
+    print(
+        f"Error: Config directory {CONFIG_DIR} does not exist or is not a directory.",
+        file=sys.stderr,
+    )
     sys.exit(1)
+SCRIPT_DIR = Path(__file__).resolve().parent
 CONFIG_FILE = CONFIG_DIR / "config.json"
-FLAGS_FILE = CONFIG_DIR / "flags.json"
-SERVICE_TEMPLATE = CONFIG_DIR / "omniclone.service"
-TIMER_TEMPLATE = CONFIG_DIR / "omniclone.timer"
+FLAGS_FILE = SCRIPT_DIR / "flags.json"
+SERVICE_TEMPLATE = SCRIPT_DIR / "omniclone.service"
+TIMER_TEMPLATE = SCRIPT_DIR / "omniclone.timer"
 LOG_FILE = CONFIG_DIR / "omniclone.log"
 
 # --- Logging Setup ---
@@ -107,8 +118,30 @@ CONFIG = load_json(CONFIG_FILE)
 FLAGS_DATA = load_json(FLAGS_FILE)
 
 TASKS = CONFIG.get("tasks", {})
-LOCK_DIR = Path(tempfile.gettempdir()) / f"omniclone_lock_{getpass.getuser()}"
-SERVICE_NAME = "omniclone"
+
+
+# --- Service Name Handling ---
+def get_service_name():
+    sn = CONFIG.get("service_name")
+    if sn is None:
+        return None
+    if not isinstance(sn, str) or not re.fullmatch(r"[a-z]+", sn):
+        LOGGER.error(
+            "service_name in config.json must be all lowercase a-z characters (no digits, spaces, or special chars)"
+        )
+        sys.exit(1)
+    return f"omniclone-{sn}"
+
+
+SERVICE_NAME = get_service_name()
+if (IS_INSTALL or IS_UNINSTALL or IS_STATUS) and SERVICE_NAME is None:
+    LOGGER.error(
+        "Missing required 'service_name' in config.json for service-related operation."
+    )
+    sys.exit(1)
+
+LOCK_DIR = Path(tempfile.gettempdir()) / f"omniclone_lock_{getpass.getuser()}{'' if SERVICE_NAME is None else '_' + SERVICE_NAME}"
+
 SYSTEMD_USER_DIR = Path.home() / ".config/systemd/user"
 
 # --- Construct Flag Arrays ---
@@ -142,7 +175,7 @@ def get_filter_flags(mode, task):
     filters = []
 
     # 1. Check for Global Mode Filter (e.g., filters.bisync.txt)
-    global_filter = CONFIG_DIR / f"filters.{mode}.txt"
+    global_filter = SCRIPT_DIR / f"filters.{mode}.txt"
     if global_filter.exists():
         filters.extend(["--filter-from", str(global_filter)])
 
@@ -179,15 +212,22 @@ def install_systemd():
 
     # Path to the actual script, not the symlink
     script_path = os.path.abspath(__file__)
-    exec_start_cmd = (
-        f"{shlex.quote(sys.executable)} {shlex.quote(script_path)} --service"
-    )
+    # Always include --config-dir for service
+    exec_start_cmd = f"{shlex.quote(sys.executable)} {shlex.quote(script_path)} --service --config-dir {shlex.quote(str(CONFIG_DIR))}"
 
-    # Load and process templates
-    service_content = SERVICE_TEMPLATE.read_text().replace(
-        "{{EXEC_START}}", exec_start_cmd
+    # Load and process templates, update Description with service name
+    service_content = SERVICE_TEMPLATE.read_text()
+    service_content = service_content.replace(
+        "Description=Rclone Omniscript Service",
+        f"Description=Rclone Omniscript Service ({SERVICE_NAME})",
     )
+    service_content = service_content.replace("{{EXEC_START}}", exec_start_cmd)
+
     timer_content = TIMER_TEMPLATE.read_text()
+    timer_content = timer_content.replace(
+        "Description=Run Rclone Omniscript Service every 30 minutes",
+        f"Description=Run Rclone Omniscript Service ({SERVICE_NAME}) every 30 minutes",
+    )
 
     (SYSTEMD_USER_DIR / f"{SERVICE_NAME}.service").write_text(service_content)
     (SYSTEMD_USER_DIR / f"{SERVICE_NAME}.timer").write_text(timer_content)
@@ -257,9 +297,12 @@ def install_windows_task():
     python_exe = sys.executable.lower().replace("python.exe", "pythonw.exe")
     current_user = f"{os.environ['USERDOMAIN']}\\{os.environ['USERNAME']}"
 
+    # Always include --config-dir for service
+    arguments = f'"{script_path}" --service --config-dir "{str(CONFIG_DIR)}"'
+
     # We set up the task with a PowerShell script block to allow for S4U logon type (background task) with no password stored
     ps_command = f"""
-    $action = New-ScheduledTaskAction -Execute '{python_exe}' -Argument '"{script_path}" --service'
+    $action = New-ScheduledTaskAction -Execute '{python_exe}' -Argument '{arguments}'
     # Trigger 1: At startup
     $trigger1 = New-ScheduledTaskTrigger -AtStartup
     # Trigger 2: Every 15 minutes, starting at midnight
