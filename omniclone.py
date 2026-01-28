@@ -30,6 +30,7 @@ import logging
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -140,11 +141,34 @@ if (IS_INSTALL or IS_UNINSTALL or IS_STATUS) and SERVICE_NAME is None:
     )
     sys.exit(1)
 
-LOCK_DIR = (
-    Path(tempfile.gettempdir())
-    / f"omniclone_lock_{getpass.getuser()}{'' if SERVICE_NAME is None else '_' + SERVICE_NAME}"
-)
 
+def get_boot_id():
+    """
+    Returns a unique string representing the current boot session.
+    - Windows: Uses powershell to get the static LastBootUpTime.
+    - Linux: Reads 'btime' from /proc/stat.
+    """
+    try:
+        if os.name == "nt":
+            cmd = [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "(Get-CimInstance Win32_OperatingSystem).LastBootUpTime.Ticks",
+            ]
+            return subprocess.check_output(cmd).decode().strip()
+        else:
+            with open("/proc/stat", "r") as f:
+                for line in f:
+                    if line.startswith("btime"):
+                        return line.split()[1]
+    except Exception as e:
+        LOGGER.warning(f"Could not determine boot ID: {e}")
+    return "unknown"
+
+
+LOCK_DIR_NAME = f"omniclone_lock_{getpass.getuser()}{'' if SERVICE_NAME is None else '_' + SERVICE_NAME}_{get_boot_id()}"
+LOCK_DIR = Path(tempfile.gettempdir()) / LOCK_DIR_NAME
 SYSTEMD_USER_DIR = Path.home() / ".config/systemd/user"
 
 # --- Construct Flag Arrays ---
@@ -204,9 +228,22 @@ def acquire_lock():
 def release_lock():
     try:
         if LOCK_DIR.exists():
-            LOCK_DIR.rmdir()
+            shutil.rmtree(LOCK_DIR, ignore_errors=True)
     except Exception as e:
         LOGGER.warning(f"Could not release lock: {e}")
+
+
+def resolve_path(path_str):
+    # Check if it's a Windows absolute path (e.g., "C:\...")
+    # If it has a colon, but the colon is the second char, it's a drive letter.
+    is_windows_drive = os.name == "nt" and len(path_str) > 1 and path_str[1] == ":"
+
+    # If no colon, OR it's a windows drive, treat as local
+    if ":" not in path_str or is_windows_drive:
+        return str(Path(path_str).expanduser().resolve())
+
+    # Otherwise, treat as rclone remote
+    return path_str
 
 
 # --- Linux Service Management Functions ---
@@ -445,12 +482,8 @@ def main():
                     LOGGER.info(f"Skipping disabled task: {task_name} ({mode})")
                     continue
                 # Expand paths
-                src_path = Path(cfg["src"]).expanduser().resolve()
-                dst_path = (
-                    str(Path(cfg["dst"]).expanduser().resolve())
-                    if ":" not in cfg["dst"]
-                    else cfg["dst"]
-                )
+                src_path = resolve_path(cfg["src"])
+                dst_path = resolve_path(cfg["dst"])
 
                 # 2. Get cascading filters
                 filters = get_filter_flags(mode, task_name)
