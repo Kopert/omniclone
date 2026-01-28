@@ -34,6 +34,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -215,14 +216,49 @@ def get_filter_flags(mode, task):
 
 
 def acquire_lock():
+    # Define your timeout in seconds (4 hours = 14400 seconds)
+    LOCK_TIMEOUT = 14400
+
     try:
         LOCK_DIR.mkdir(parents=True, exist_ok=False)
         return True
     except FileExistsError:
-        LOGGER.warning(
-            f"Lock directory exists. Another instance may be running. If not, delete {LOCK_DIR}"
-        )
-        return False
+        # Lock exists. Check if it's stale.
+        try:
+            # If stat() fails (e.g. file deleted mid-check), we catch it below
+            last_modified = LOCK_DIR.stat().st_mtime
+            age_seconds = time.time() - last_modified
+
+            if age_seconds > LOCK_TIMEOUT:
+                LOGGER.warning(
+                    f"Found stale lock from {age_seconds / 60:.1f} minutes ago. "
+                    "Attempting to clear and reclaim."
+                )
+                # Force delete the stale lock
+                shutil.rmtree(LOCK_DIR, ignore_errors=True)
+
+                # Try to create it again immediately
+                try:
+                    LOCK_DIR.mkdir(parents=True, exist_ok=False)
+                    LOGGER.info("Stale lock cleared and new lock acquired.")
+                    return True
+                except FileExistsError:
+                    # Race condition: Another instance beat us to the reclaim
+                    LOGGER.warning(
+                        "Another instance reclaimed the stale lock before we could."
+                    )
+                    return False
+            else:
+                LOGGER.warning(
+                    f"Active lock exists (created {age_seconds / 60:.1f} mins ago). "
+                    "Skipping this run."
+                )
+                return False
+
+        except OSError as e:
+            # Catches permission errors, or if the file vanished (race condition) during stat()
+            LOGGER.error(f"Error checking lock state: {e}")
+            return False
 
 
 def release_lock():
